@@ -1,11 +1,12 @@
-const { pegarPorId } = require('../TabelaFornecedor')
+const { pegarPorId, atualizar } = require('../TabelaFornecedor')
 const Modelo = require('./ModeloTabelaProduto')
 module.exports = {
     listar(idFornecedor) {
         return Modelo.findAll({
             where: {
                 fornecedor: idFornecedor
-            }
+            },
+            raw: true
         })
     },
     inserir(dados) {
@@ -31,5 +32,14 @@ module.exports = {
             throw new Error('Produto não foi encontrado!')
         }
         return encontrado 
+    },
+
+    atualizar (dadosDoProduto, dadosParaAtualizar){
+        return Modelo.update(
+            dadosParaAtualizar,
+            {
+                where: dadosDoProduto
+            }
+        )
     }
 }
