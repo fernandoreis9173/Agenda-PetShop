@@ -27,9 +27,22 @@ app.use((requisicao, resposta, proximo) => {
     resposta.setHeader('Content-Type', formatoRequisitado)
     proximo()
 })
+//Aletar a resposta da requisicao da API.
+app.use((requisicao, resposta, proximo) => {
+    resposta.set('X-Powered-By', 'Familia Reis')
+    proximo()
+})
+
+app.use((require, resposta, proximo) => {
+    resposta.set('Access-Control-Allow-Origin', '*')
+    proximo()
+})
 
 const roteador = require('./rotas/fornecedores')
 app.use('/api/fornecedores', roteador)
+
+const roteadorV2 = require('./rotas/fornecedores/rotas.v2')
+app.use('/api/v2/fornecedores', roteadorV2)
 
 app.use((erro, requisicao, resposta, proximo) => {
     let status = 500

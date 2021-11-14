@@ -3,6 +3,13 @@ const Tabela = require('./TabelaProduto')
 const Produto = require('./produto')
 const Serializador = require('../../../Serializador').SerializadorProduto
 
+roteador.options('/', (requisicao, resposta) => {
+    resposta.set('Access-Control-Allow-Methods', 'GET, POST')
+    resposta.set('Access-Control-Allow-Headers', 'Content-Type')
+    resposta.status(204)
+    resposta.end()
+})
+
 roteador.get('/', async (requisicao, resposta) => {
     const produtos = await Tabela.listar(requisicao.fornecedor.id)
     const serializador = new Serializador(
@@ -23,6 +30,11 @@ roteador.post('/', async (requisicao, resposta, proximo) => {
         const serializador = new Serializador(
             resposta.getHeader('Content-Type')
         )
+        //para pegar a ultima atualização do produto
+        resposta.set('ETag', produto.versao)
+        const timestamp = (new Date(produto.dataAtualizacao)).getTime()
+        resposta.set('Last-Modified', timestamp)
+        resposta.set('Location', `/api/forncedores/${produto.fornecedor}/produtos/${produto.id}`)
         resposta.status(201)
         resposta.send(
             serializador.serializar(produto)
@@ -30,6 +42,13 @@ roteador.post('/', async (requisicao, resposta, proximo) => {
     }catch (erro) {
         proximo(erro)
     }
+})
+
+roteador.options('/', (requisicao, resposta) => {
+    resposta.set('Access-Control-Allow-Methods', 'DELETE, GET, HEAD, PUT')
+    resposta.set('Access-Control-Allow-Headers', 'Content-Type')
+    resposta.status(204)
+    resposta.end()
 })
 
 roteador.delete('/:id', async (requisicao, resposta) => {
@@ -46,19 +65,51 @@ roteador.delete('/:id', async (requisicao, resposta) => {
 
 roteador.get('/:id', async (requisicao, resposta, proximo) => {
     try{
+        //pegando os dados
         const dados = {
             id: requisicao.params.id,
             fornecedor: requisicao.fornecedor.id
         }
+        //estancianado os dados na classe produto
         const produto = new Produto(dados)
+        //carregando os produtos no banco de dados
         await produto.carregar()
+        //passando pelo serializador
         const serializador = new Serializador(
             resposta.getHeader('Content-Type'),
             ['preco', 'estoque', 'fornecedor',  'dataCriacao', 'dataAtualizacao', 'versao']
         )
+        //preenche os cabeçalhos do Etag e Ultima atualização
+        resposta.set('ETag', produto.versao)
+        const timestamp = (new Date(produto.dataAtualizacao)).getTime()
+        resposta.set('Last-Modified', timestamp)
+        //envia a resposta
         resposta.send(
             serializador.serializar(produto)
         )
+    }catch(erro) {
+        proximo(erro)
+    }
+})
+
+roteador.head('/:id', async (requisicao, resposta, proximo) => {
+    try{
+        //pegando os dados
+        const dados = {
+            id: requisicao.params.id,
+            fornecedor: requisicao.fornecedor.id
+        }
+        //estancianado os dados na classe produto
+        const produto = new Produto(dados)
+        //carregando os produtos no banco de dados
+        await produto.carregar()
+        //preenche os cabeçalhos do Etag e Ultima atualização
+        resposta.set('ETag', produto.versao)
+        const timestamp = (new Date(produto.dataAtualizacao)).getTime()
+        resposta.set('Last-Modified', timestamp)
+        resposta.status(200)
+        //encerrar requisicao sem enviar nada na resposta
+        resposta.end()
     }catch(erro) {
         proximo(erro)
     }
@@ -71,17 +122,28 @@ roteador.put('/:id', async (requisicao, resposta, proximo) =>{
             requisicao.body,
             {
                 id: requisicao.params.id,
-                fornecedor: requisicao.params.id
+                fornecedor: requisicao.fornecedor.id
             }
         )
         const produto = new Produto(dados)
         await produto.atualizar()
+        await produto.carregar()
+        //para pegar a ultima atualização do produto
+        resposta.set('ETag', produto.versao)
+        const timestamp = (new Date(produto.dataAtualizacao)).getTime()
+        resposta.set('Last-Modified', timestamp)
         resposta.status(204)
         resposta.end()
     }catch (erro) {
         proximo(erro)
     }
-    
+})
+
+roteador.options('/id/diminuir-estoque', (requisicao, resposta) => {
+    resposta.set('Access-Control-Allow-Methods', 'POST')
+    resposta.set('Access-Control-Allow-Headers', 'Content-Type')
+    resposta.status(204)
+    resposta.end()
 })
 
 roteador.post('/:id/diminuir-estoque', async(requisicao, resposta, proximo) => {
@@ -94,6 +156,11 @@ roteador.post('/:id/diminuir-estoque', async(requisicao, resposta, proximo) => {
         await produto.carregar()
         produto.estoque = produto.estoque - requisicao.body.quantidade
         await produto.diminuirEstoque()
+        await produto.carregar()
+        //para pegar a ultima atualização do produto
+        resposta.set('ETag', produto.versao)
+        const timestamp = (new Date(produto.dataAtualizacao)).getTime()
+        resposta.set('Last-Modified', timestamp)
         resposta.status(204)
         resposta.end()
     }catch (erro) {
